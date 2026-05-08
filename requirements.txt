@@ -1,0 +1,5 @@
+google-genai==1.66.0
+tavily-python
+youtube-transcript-api
+gradio
+python-dotenv
