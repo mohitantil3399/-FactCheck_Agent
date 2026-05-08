@@ -58,7 +58,7 @@ def parse_youtube_link(user_input):
             english_transcript = transcript.fetch()
         # stitch together
         full_transcript = " ".join([item.text for item in english_transcript]).replace('\n', ' ')
-        return full_transcript
+        return full_transcript[:5000] # Truncate to first ~5000 characters to speed up LLM processing
     except Exception as e:
         return f"[Agent Note: YouTube Transcript failed or disabled. Error: {str(e)}]"
 
@@ -68,7 +68,7 @@ def search_trusted_web(claim):
         # Excluding unreliable platforms to force reliance on official/news sites
         response = tavily_client.search(
             query=claim,
-            search_depth="advanced",
+            search_depth="basic",
             exclude_domains=['youtube.com', 'tiktok.com', 'reddit.com', 'twitter.com', 'x.com', 'instagram.com', 'facebook.com']
         )
         # Format the search results into a readable string for the LLM
@@ -94,10 +94,13 @@ def factCheck_agent(text_input, media_file):
     target_media = None
     try:
         if media_file is not None and text_input.strip():
-            return "Please provide either a text claim/YouTube link OR upload a screenshot, but not both at the same time."
+            yield "Please provide either a text claim/YouTube link OR upload a screenshot, but not both at the same time."
+            return
 
         if media_file is not None:
+            yield "⏳ Uploading and processing screenshot..."
             target_media = upload_and_wait(media_file)
+            yield "🤖 Extracting claim from screenshot..."
             prompt = "Analyze this screenshot. What is the primary factual claim being made? Be concise. If no factual claim is made, reply 'NO_CLAIM'."
             responseOfModel = client.models.generate_content(
                 model = 'gemini-2.5-flash',
@@ -106,13 +109,16 @@ def factCheck_agent(text_input, media_file):
             extracted_claim = responseOfModel.text
 
         elif text_input.strip():
+            yield "⏳ Fetching YouTube transcript or parsing text..."
             transcript = parse_youtube_link(text_input)
             if transcript is not None:      #if its a yt link and true
                 if transcript.startswith("[Agent Note:"):
                     # If transcript fetching failed, return the error directly
-                    return f"I couldn't verify this video as I could not access the captions.(Technical details :{transcript})"
+                    yield f"I couldn't verify this video as I could not access the captions.(Technical details :{transcript})"
+                    return
                 else:
                     # If valid transcript obtained, extract claim from it
+                    yield "🤖 Extracting claim from video transcript..."
                     prompt = f"Analyze this video transcript: '{transcript}'. Extract the most significant, verifiable factual claim (e.g., tech rumors, news, health).Ignore intros or promo details. Be concise. If no verifiable claim exists, reply 'No_Claim'. "
                     responseOfModel = client.models.generate_content(
                         model='gemini-2.5-flash',
@@ -123,16 +129,20 @@ def factCheck_agent(text_input, media_file):
                 # It's just a raw text claim typed by the user
                 extracted_claim = text_input
         else:
-            return "Please provide a text claim, a YouTube link, or upload a screenshot."
+            yield "Please provide a text claim, a YouTube link, or upload a screenshot."
+            return
 
         # Guardrail for empty claims
         if "NO_CLAIM" in extracted_claim.upper():
-            return "I couldn't identify a verifiable factual claim in the provided input."
+            yield "I couldn't identify a verifiable factual claim in the provided input."
+            return
 
         # STEP 2: TOOL USE (WEB SEARCH)
+        yield f"🔎 Searching trusted web sources for: '{extracted_claim}'..."
         search_evidence = search_trusted_web(extracted_claim)
 
         # STEP 3: FINAL EVALUATION (System Prompt Architecture)
+        yield "⚖️ Evaluating evidence and forming final verdict..."
         system_prompt = f"""
         You are an elite, impartial Fact-Checking Agent.
         You analyze claims using provided search evidence.
@@ -153,9 +163,9 @@ def factCheck_agent(text_input, media_file):
             )
 
 
-        return final_response.text
+        yield final_response.text
     except Exception as e:
-        return f"Agent encountered system error : {str(e)}\n Try again running the query."
+        yield f"Agent encountered system error : {str(e)}\n Try again running the query."
 
 print("cell 2 logic loaded!")
 
