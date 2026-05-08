@@ -94,11 +94,11 @@ def factCheck_agent(text_input, media_file):
     target_media = None
     try:
         if media_file is not None and text_input.strip():
-            return "Please provide either a text claim/YouTube link OR upload a media file, but not both at the same time."
+            return "Please provide either a text claim/YouTube link OR upload a screenshot, but not both at the same time."
 
         if media_file is not None:
             target_media = upload_and_wait(media_file)
-            prompt = "Analyze this media file. What is the primary factual claim being made? Be concise. If no factual claim is made, reply 'NO_CLAIM'."
+            prompt = "Analyze this screenshot. What is the primary factual claim being made? Be concise. If no factual claim is made, reply 'NO_CLAIM'."
             responseOfModel = client.models.generate_content(
                 model = 'gemini-2.5-flash',
                 contents = [target_media, prompt]
@@ -123,7 +123,7 @@ def factCheck_agent(text_input, media_file):
                 # It's just a raw text claim typed by the user
                 extracted_claim = text_input
         else:
-            return "Please provide a text claim, a YouTube link, or upload a media file."
+            return "Please provide a text claim, a YouTube link, or upload a screenshot."
 
         # Guardrail for empty claims
         if "NO_CLAIM" in extracted_claim.upper():
@@ -162,7 +162,7 @@ print("cell 2 logic loaded!")
 # ui of the app using gradio
 with gr.Blocks() as app:
     gr.Markdown("# 🕵️‍♂️ AI Fact-Checking Agent")
-    gr.Markdown(" Upload media, paste a YouTube link, or type a claim. The agent will automatically extract the claim, search trusted domains, and return a evaluation.")
+    gr.Markdown(" Upload a screenshot, paste a YouTube link, or type a claim. The agent will automatically extract the claim, search trusted domains, and return a evaluation.")
 
     with gr.Row():
         with gr.Column():
@@ -173,8 +173,8 @@ with gr.Blocks() as app:
             )
 
             user_media = gr.File(
-                label="OR upload a Screenshot/Video",
-                file_types=["image", "video"],
+                label="OR upload a Screenshot",
+                file_types=["image"],
                 type="filepath" # Ensures Gradio passes the file path string to our function
             )
 
