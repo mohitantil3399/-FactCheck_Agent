@@ -1,0 +1,8 @@
+To run through your ownsystem server and broader access use this command:
+ssh -R 80:127.0.0.1:7860 -o StrictHostKeyChecking=no nokey@localhost.run
+
+
+
+To share it with the world for 48 hours use this command (if the first one doesn't work):
+python ace_academy_project.py --share
+
